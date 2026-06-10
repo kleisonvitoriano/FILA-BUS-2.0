@@ -1111,7 +1111,7 @@ export default function App() {
                         <div 
                           className="absolute -top-3.5 -left-1.5 bg-black text-theme text-[9px] font-black p-1 border-2 border-theme uppercase tracking-widest z-10 transform -rotate-2 select-none"
                         >
-                          ● REAL-TIME SYNCHRONIZATION
+                          ● Horário Atualizado
                         </div>
                         <div 
                           className="bg-theme p-4 border-4 border-white shadow-solid-black flex justify-center items-center"
