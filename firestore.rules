@@ -1,0 +1,95 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // --- GLOBAL SAFETY MATCH (DEFAULT DENY WALL) ---
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- REUSABLE SECURITY UTILITIES ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function getUserRole() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) ?
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'user') :
+        'user';
+    }
+
+    function isSuperAdmin() {
+      return isSignedIn() && (
+        request.auth.uid == "twqMzdcSPVT31cuQJKsE8HKxQBH3" || 
+        request.auth.uid == "fezXWTgqXUMCUBUKSBau6Sv4K9n2" ||
+        request.auth.token.email == "kleissonvitoriano@gmail.com" ||
+        getUserRole() == "superadmin"
+      );
+    }
+
+    // --- USERS PROFILES PATH ---
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isSuperAdmin();
+      allow delete: if isSuperAdmin();
+    }
+
+    // --- QUEUES GENERAL PATH ---
+    match /queues/{queueId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSuperAdmin();
+      
+      // --- MEMBERS INSIDE QUEUES ---
+      match /members/{memberId} {
+        allow read: if isSignedIn();
+        allow create, update, delete: if isOwner(memberId) || isSuperAdmin();
+      }
+
+      // --- CHAT MESSAGES INSIDE QUEUES ---
+      match /chat/{messageId} {
+        allow read: if isSignedIn();
+        // Allow creating system alerts or standard user messages
+        allow create: if isSignedIn() && (
+          request.resource.data.get('userId', '') == request.auth.uid || 
+          request.resource.data.get('type', '') == "system"
+        );
+        allow update, delete: if isSuperAdmin();
+      }
+
+      // --- CLICK BATTLE PLAYERS INSIDE QUEUES ---
+      match /click_battle/{playerId} {
+        allow read: if isSignedIn();
+        allow create, update: if isOwner(playerId);
+        allow delete: if isOwner(playerId) || isSuperAdmin();
+      }
+
+      // --- GAME STATE INSIDE QUEUES ---
+      match /game/{docId} {
+        allow read: if isSignedIn();
+        allow create, update: if isSignedIn();
+        allow delete: if isSuperAdmin();
+      }
+    }
+
+    // --- SOCIAL SOCIAL FEED & POSTS ---
+    match /posts/{postId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn(); 
+      allow delete: if isSignedIn() && (isOwner(resource.data.userId) || isSuperAdmin());
+
+      // --- SUBCOLLECTION OF COMMENTS ---
+      match /comments/{commentId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+        allow update, delete: if isSignedIn() && (isOwner(resource.data.userId) || isSuperAdmin());
+      }
+    }
+
+  }
+}
