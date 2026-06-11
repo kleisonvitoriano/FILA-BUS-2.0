@@ -1,0 +1,155 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Dados cadastrais e de configuração de um agente/passageiro na plataforma",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "name": { "type": "string" },
+        "course": { "type": "string" },
+        "phone": { "type": "string" },
+        "photoUrl": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "driver", "superadmin"] },
+        "joinedQueues": { "type": "array" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Queue": {
+      "title": "Queue",
+      "description": "Especificações e agendamentos de uma fila de ônibus virtual ativa",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "code": { "type": "string" },
+        "openTime": { "type": "string" },
+        "closeTime": { "type": "string" },
+        "lastResetDate": { "type": "string" }
+      },
+      "required": ["name", "code"]
+    },
+    "QueueMember": {
+      "title": "QueueMember",
+      "description": "Registro de posicionamento ativo de um usuário na fila de embarque",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "course": { "type": "string" },
+        "photoUrl": { "type": "string" },
+        "observation": { "type": "string" },
+        "timestamp": { "type": "object", "description": "Server Timestamp" }
+      },
+      "required": ["name", "course", "timestamp"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Mensagem ou registro de atividade sistêmica síncrona transmitida no chat da fila",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string" },
+        "type": { "type": "string", "enum": ["user", "system"] },
+        "sender": { "type": "string" },
+        "photoUrl": { "type": "string" },
+        "userId": { "type": "string" },
+        "timestamp": { "type": "object", "description": "Server Timestamp" }
+      },
+      "required": ["text", "type", "timestamp"]
+    },
+    "ScribblePlayer": {
+      "title": "ScribblePlayer",
+      "description": "Placar e participação ativa do jogador no jogo de desenho síncrono",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "photoUrl": { "type": "string" },
+        "score": { "type": "number" },
+        "lastActive": { "type": "number" }
+      },
+      "required": ["uid", "name", "score"]
+    },
+    "ScribbleGameState": {
+      "title": "ScribbleGameState",
+      "description": "Estado síncrono geral da rodada de desenho ativa na fila",
+      "type": "object",
+      "properties": {
+        "drawerUid": { "type": "string" },
+        "drawerName": { "type": "string" },
+        "category": { "type": "string" },
+        "obfuscatedWord": { "type": "string" },
+        "hint": { "type": "string" },
+        "status": { "type": "string", "enum": ["idle", "drawing", "reveal"] },
+        "roundNum": { "type": "number" },
+        "winnerUid": { "type": "string" },
+        "winnerName": { "type": "string" },
+        "revealedWord": { "type": "string" }
+      },
+      "required": ["drawerUid", "status", "roundNum"]
+    },
+    "SocialPost": {
+      "title": "SocialPost",
+      "description": "Postagens na comunidade da rede social",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userCourse": { "type": "string" },
+        "userPhoto": { "type": "string" },
+        "content": { "type": "string" },
+        "color": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "likes": { "type": "array" },
+        "timestamp": { "type": "object", "description": "Server Timestamp" }
+      },
+      "required": ["userId", "userName", "content", "timestamp"]
+    },
+    "SocialComment": {
+      "title": "SocialComment",
+      "description": "Comentários das postagens",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userPhoto": { "type": "string" },
+        "content": { "type": "string" },
+        "timestamp": { "type": "object", "description": "Server Timestamp" }
+      },
+      "required": ["userId", "userName", "content", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Perfis gerais dos usuários cadastrados"
+    },
+    "/queues/{queueId}": {
+      "schema": "Queue",
+      "description": "Instâncias das linhas de ônibus ativas"
+    },
+    "/queues/{queueId}/members/{userId}": {
+      "schema": "QueueMember",
+      "description": "Inscrições ativas de passageiros posicionados na fila"
+    },
+    "/queues/{queueId}/chat/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "Mensagens e alertas automáticos enviados no chat de cada fila"
+    },
+    "/queues/{queueId}/game/players": {
+      "schema": "ScribblePlayer",
+      "description": "Jogadores e placares do jogo de lousa de desenho"
+    },
+    "/queues/{queueId}/game/state": {
+      "schema": "ScribbleGameState",
+      "description": "Controle de rodadas e dados de revelação do jogo"
+    },
+    "/posts/{postId}": {
+      "schema": "SocialPost",
+      "description": "Postagens gerais dos usuários da comunidade"
+    },
+    "/posts/{postId}/comments/{commentId}": {
+      "schema": "SocialComment",
+      "description": "Comentários vinculados a cada postagem"
+    }
+  }
+}
