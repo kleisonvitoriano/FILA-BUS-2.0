@@ -44,7 +44,7 @@ import {
   Gamepad2
 } from "lucide-react";
 
-import { auth, db, handleFirestoreError, OperationType } from "./firebase";
+import { auth, db, handleFirestoreError, OperationType, onQuotaError } from "./firebase";
 import { UserProfile, Queue, QueueMember, ChatMessage } from "./types";
 import { optimizeImage, escapeHTML } from "./utils";
 
@@ -106,6 +106,7 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [quotaExceeded, setQuotaExceeded] = useState(false);
   
   // App navigation state
   const [selectedQueueId, setSelectedQueueId] = useState<string | null>(null);
@@ -170,6 +171,11 @@ export default function App() {
 
   // --- 1. INSTANT START CACHING SYSTEM ---
   useEffect(() => {
+    // Register global listener for quota exceeded errors
+    onQuotaError(() => {
+      setQuotaExceeded(true);
+    });
+
     // Synchronously recover cached profile on first load
     try {
       const cachedProf = localStorage.getItem("cached_profile");
@@ -381,6 +387,9 @@ export default function App() {
           }
         } catch (err) {
           console.error("Auth initialization database error: ", err);
+          if (err instanceof Error && (err.message.toLowerCase().includes("quota exceeded") || err.message.toLowerCase().includes("quota limit") || err.message.toLowerCase().includes("quota metric"))) {
+            setQuotaExceeded(true);
+          }
           triggerToast("Falha de autenticação com o banco.", "error");
           setAuthLoading(false);
         }
@@ -498,6 +507,9 @@ export default function App() {
           cacheQueuesList(loaded);
         } catch (e) {
           console.error("Could not fetch user queues list", e);
+          if (e instanceof Error && (e.message.toLowerCase().includes("quota exceeded") || e.message.toLowerCase().includes("quota limit") || e.message.toLowerCase().includes("quota metric"))) {
+            setQuotaExceeded(true);
+          }
         }
       };
       loadJoinedQueues();
@@ -1044,6 +1056,42 @@ export default function App() {
 
   return (
     <div className="min-h-screen text-white pb-24 relative selection:bg-red-600 selection:text-white">
+      {/* QUOTA EXCEEDED GATE */}
+      {quotaExceeded && (
+        <div className="fixed inset-0 bg-black/95 z-[100] flex flex-col items-center justify-center p-6 text-center">
+          <div className="max-w-md w-full bg-[#111] p-6 border-4 border-red-600 shadow-[8px_8px_0_0_rgba(220,38,38,0.3)] transform -skew-x-1">
+            <div className="flex justify-center mb-4 text-red-600 animate-bounce">
+              <ShieldAlert size={56} />
+            </div>
+            <h2 className="text-xl md:text-2xl font-black italic uppercase text-red-600 tracking-wide mb-3">
+              LIMITE DE LEITURAS EXCEDIDO
+            </h2>
+            <p className="text-xs md:text-sm text-gray-300 font-bold uppercase tracking-wider mb-6 leading-relaxed">
+              O banco de dados atingiu o limite gratuito de consultas diárias concedido pelo Google Firebase (Spark Plan / 50.000 leituras).
+            </p>
+            
+            <div className="bg-black p-4 border-2 border-dashed border-red-600 text-left mb-6 text-xs uppercase font-mono text-red-500 space-y-2">
+              <p>● STATUS: SISTEMA SUSPENSO ATÉ O PRÓXIMO RESET (MEIA-NOITE)</p>
+              <p>● PROJETO: FILAONIBUS</p>
+              <p>● DB ID: ai-studio-bb824f99-4a0e-48c0-8623-013f7fd7ee9f</p>
+            </div>
+
+            <p className="text-[11px] text-gray-400 font-medium mb-6 uppercase">
+              Para resolver isso imediatamente, você pode abrir o console do Firebase e ativar o faturamento (plano com tarifas pequenas) ou aguardar a reinicialização automática amanhã.
+            </p>
+
+            <a
+              href="https://console.firebase.google.com/project/filaonibus/firestore/databases/ai-studio-bb824f99-4a0e-48c0-8623-013f7fd7ee9f/data?openUpgradeDialog=true"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block w-full bg-red-600 hover:bg-red-700 text-white font-black uppercase italic py-3 px-6 border-2 border-black active:scale-95 shadow-[4px_4px_0_0_#fff] transition-all cursor-pointer text-sm tracking-widest text-center"
+            >
+              🚀 ATIVAR BASE NO GOOGLE (FIREBASE)
+            </a>
+          </div>
+        </div>
+      )}
+
       {/* 10. LOADING SHELL GATE */}
       {authLoading && (
         <div className="fixed inset-0 bg-black/95 z-50 flex flex-col items-center justify-center gap-4">
@@ -1160,7 +1208,7 @@ export default function App() {
                         <div 
                           className="absolute -top-3.5 -left-1.5 bg-black text-theme text-[9px] font-black p-1 border-2 border-theme uppercase tracking-widest z-10 transform -rotate-2 select-none"
                         >
-                          ● Horário Atualizado
+                          ● HORÁRIO ATUALIZADO
                         </div>
                         <div 
                           className="bg-theme p-4 border-4 border-white shadow-solid-black flex justify-center items-center"

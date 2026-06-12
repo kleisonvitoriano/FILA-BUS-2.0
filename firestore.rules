@@ -16,18 +16,11 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    function getUserRole() {
-      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) ?
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'user') :
-        'user';
-    }
-
     function isSuperAdmin() {
       return isSignedIn() && (
         request.auth.uid == "twqMzdcSPVT31cuQJKsE8HKxQBH3" || 
         request.auth.uid == "fezXWTgqXUMCUBUKSBau6Sv4K9n2" ||
-        request.auth.token.email == "kleissonvitoriano@gmail.com" ||
-        getUserRole() == "superadmin"
+        request.auth.token.email == "kleissonvitoriano@gmail.com"
       );
     }
 
@@ -57,8 +50,8 @@ service cloud.firestore {
         allow read: if isSignedIn();
         // Allow creating system alerts or standard user messages
         allow create: if isSignedIn() && (
-          request.resource.data.get('userId', '') == request.auth.uid || 
-          request.resource.data.get('type', '') == "system"
+          (request.resource.data.type == "user" && request.resource.data.userId == request.auth.uid) || 
+          (request.resource.data.type == "system")
         );
         allow update, delete: if isSuperAdmin();
       }

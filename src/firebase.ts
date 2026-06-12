@@ -5,7 +5,15 @@ import firebaseConfig from "../firebase-applet-config.json";
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+
+// Use defined database ID if specified, otherwise fall back to standard '(default)' database
+const dbId = (firebaseConfig as any).firestoreDatabaseId && 
+             (firebaseConfig as any).firestoreDatabaseId !== "" && 
+             (firebaseConfig as any).firestoreDatabaseId !== "(default)"
+  ? (firebaseConfig as any).firestoreDatabaseId 
+  : undefined;
+
+export const db = getFirestore(app, dbId);
 
 // --- ERROR HANDLING AS INSTRUCTED BY FIRBASE SKILL ---
 export enum OperationType {
@@ -29,9 +37,24 @@ export interface FirestoreErrorInfo {
   }
 }
 
+// Global listener for quota exceeded errors
+let quotaErrorCallback: (() => void) | null = null;
+export function onQuotaError(callback: () => void) {
+  quotaErrorCallback = callback;
+}
+
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errMsg = error instanceof Error ? error.message : String(error);
+  if (errMsg.toLowerCase().includes("quota exceeded") || 
+      errMsg.toLowerCase().includes("quota limit") || 
+      errMsg.toLowerCase().includes("quota metric")) {
+    if (quotaErrorCallback) {
+      quotaErrorCallback();
+    }
+  }
+
   const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
+    error: errMsg,
     authInfo: {
       userId: auth.currentUser?.uid,
       email: auth.currentUser?.email,
