@@ -37,5 +37,6 @@ export interface ChatMessage {
   userId?: string;
   sender?: string;
   photoUrl?: string;
+  imageUrl?: string;
   timestamp: any; // Firestore Timestamp
 }

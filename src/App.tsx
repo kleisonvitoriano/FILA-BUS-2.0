@@ -40,8 +40,7 @@ import {
   AlertCircle,
   Layers,
   Megaphone,
-  Users,
-  Gamepad2
+  Users
 } from "lucide-react";
 
 import { auth, db, handleFirestoreError, OperationType, onQuotaError } from "./firebase";
@@ -55,7 +54,6 @@ import AuthScreen from "./components/AuthScreen";
 import QueueSelection from "./components/QueueSelection";
 import AdminPanel from "./components/AdminPanel";
 import ChatSection from "./components/ChatSection";
-import ScribbleFila from "./components/ScribbleFila";
 
 const SUPER_ADMIN_UIDS = ["twqMzdcSPVT31cuQJKsE8HKxQBH3", "fezXWTgqXUMCUBUKSBau6Sv4K9n2"];
 
@@ -116,7 +114,7 @@ export default function App() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
 
   // Mobile Tab navigation state
-  const [mobileTab, setMobileTab] = useState<"queues" | "dashboard" | "chat" | "announcements" | "games">("queues");
+  const [mobileTab, setMobileTab] = useState<"queues" | "dashboard" | "chat" | "announcements">("queues");
   const [announcementText, setAnnouncementText] = useState("");
   const [announcementImage, setAnnouncementImage] = useState("");
   const [isCompressingImage, setIsCompressingImage] = useState(false);
@@ -729,7 +727,9 @@ export default function App() {
 
       await addDoc(collection(db, "queues", selectedQueueId, "chat"), {
         text: `${userProfile.name} entrou na fila! (Entrada registrada às ${entryTimeStr})`,
+        texto: `${userProfile.name} entrou na fila! (Entrada registrada às ${entryTimeStr})`,
         type: "system",
+        uid: currentUser.uid,
         timestamp: serverTimestamp()
       });
 
@@ -768,7 +768,9 @@ export default function App() {
         
         await addDoc(collection(db, "queues", selectedQueueId, "chat"), {
           text: `${userProfile.name} saiu da fila. (Entrou às ${entryTimeStr})`,
+          texto: `${userProfile.name} saiu da fila. (Entrou às ${entryTimeStr})`,
           type: "system",
+          uid: currentUser.uid,
           timestamp: serverTimestamp()
         });
 
@@ -782,18 +784,30 @@ export default function App() {
   };
 
   // Chat message sender
-  const handleSendChatMessage = async (text: string) => {
+  const handleSendChatMessage = async (text: string, imageUrl?: string) => {
     if (!currentUser || !selectedQueueId || !userProfile) return;
+    const path = `queues/${selectedQueueId}/chat`;
     try {
-      await addDoc(collection(db, "queues", selectedQueueId, "chat"), {
+      const msgData: any = {
         text: text.trim(),
+        texto: text.trim(),
         type: "user",
         sender: userProfile.name || "Passageiro",
         photoUrl: userProfile.photoUrl || "",
-        userId: currentUser.uid,
+        uid: currentUser.uid,
         timestamp: serverTimestamp()
-      });
+      };
+      if (imageUrl) {
+        msgData.imageUrl = imageUrl;
+      }
+      if (currentUser) {
+        msgData.userId = currentUser.uid;
+      }
+      
+      await addDoc(collection(db, "queues", selectedQueueId, "chat"), msgData);
     } catch (e) {
+      console.error("Failed to send chat message:", e);
+      handleFirestoreError(e, OperationType.CREATE, path);
       triggerToast("Erro ao transmitir mensagem.", "error");
     }
   };
@@ -811,7 +825,9 @@ export default function App() {
 
         await addDoc(collection(db, "queues", selectedQueueId, "chat"), {
           text: "O histórico do chat foi limpo pelo administrador.",
+          texto: "O histórico do chat foi limpo pelo administrador.",
           type: "system",
+          uid: currentUser.uid,
           timestamp: serverTimestamp()
         });
 
@@ -966,7 +982,9 @@ export default function App() {
 
         await addDoc(collection(db, "queues", selectedQueueId, "chat"), {
           text: logText,
+          texto: logText,
           type: "system",
+          uid: currentUser.uid,
           timestamp: serverTimestamp()
         });
         
@@ -999,7 +1017,9 @@ export default function App() {
 
       await addDoc(collection(db, "queues", selectedQueueId, "chat"), {
         text: `Admin moveu ${currentToMove.name} de posição.`,
+        texto: `Admin moveu ${currentToMove.name} de posição.`,
         type: "system",
+        uid: currentUser.uid,
         timestamp: serverTimestamp()
       });
     } catch (e) {
@@ -1031,7 +1051,9 @@ export default function App() {
         
         await addDoc(collection(db, "queues", selectedQueueId, "chat"), {
           text: `Admin removeu ${name} do grid. (Entrou às ${entryTimeStr})`,
+          texto: `Admin removeu ${name} do grid. (Entrou às ${entryTimeStr})`,
           type: "system",
+          uid: currentUser.uid,
           timestamp: serverTimestamp()
         });
         
@@ -1676,13 +1698,6 @@ export default function App() {
                 </motion.div>
               )}
 
-              {mobileTab === "games" && (
-                <motion.div key="games-tab" className="w-full" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-                  <ScribbleFila queueId={selectedQueueId} userProfile={userProfile} />
-                </motion.div>
-              )}
-
-
             </motion.div>
           )}
         </AnimatePresence>
@@ -1698,10 +1713,9 @@ export default function App() {
         >
           {[
             { id: "queues", label: "FILAS", icon: Layers },
-            { id: "dashboard", label: "FILA", icon: Users },
+            { id: "dashboard", label: "VER FILA", icon: Users },
             { id: "chat", label: "CHAT", icon: MessageSquare },
-            { id: "announcements", label: "AVISOS", icon: Megaphone },
-            { id: "games", label: "JOGOS", icon: Gamepad2 }
+            { id: "announcements", label: "MURAL", icon: Megaphone }
           ].map((tab) => {
             const isSelected = mobileTab === tab.id;
             const Icon = tab.icon;
