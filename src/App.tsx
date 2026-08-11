@@ -229,29 +229,24 @@ export default function App() {
     });
   };
 
-  // --- 4. REAL-TIME WORLDTIME CLOCK DELTA (UTC-3 America/Sao_Paulo) ---
+  // --- 4. REAL-TIME WORLDTIME CLOCK DELTA (UTC-3 America/Fortaleza) ---
   const fetchTimeOffset = async () => {
-    const sources = [
-      "https://worldtimeapi.org/api/timezone/America/Sao_Paulo",
-      "https://timeapi.io/api/Time/current/zone?timeZone=America/Sao_Paulo"
-    ];
+    const apiUrl = "https://time.now/developer/api/timezone/America/Fortaleza";
 
-    for (const src of sources) {
-      try {
-        const res = await fetch(src, { cache: "no-store" });
-        if (res.ok) {
-          const data = await res.json();
-          const serverDateStr = data.datetime || data.dateTime;
-          const serverMs = new Date(serverDateStr).getTime();
-          const localMs = Date.now();
-          // serverMs = localMs + delta => delta = serverMs - localMs
-          baseTimeDelta.current = serverMs - localMs;
-          setIsTimeSynced(true);
-          return;
-        }
-      } catch (err) {
-        console.warn("Failed time fetch on source: " + src);
+    try {
+      const res = await fetch(apiUrl, { cache: "no-store" });
+      if (res.ok) {
+        const data = await res.json();
+        // unixtime is in seconds, convert to milliseconds
+        const serverMs = data.unixtime * 1000;
+        const localMs = Date.now();
+        // serverMs = localMs + delta => delta = serverMs - localMs
+        baseTimeDelta.current = serverMs - localMs;
+        setIsTimeSynced(true);
+        return;
       }
+    } catch (err) {
+      console.warn("Failed time fetch from API: " + err);
     }
     // Local fallback if networking suffers
     baseTimeDelta.current = 0;
@@ -260,7 +255,7 @@ export default function App() {
 
   useEffect(() => {
     fetchTimeOffset();
-    const syncInterval = setInterval(fetchTimeOffset, 180000); // sync offset every 3 mins
+    const syncInterval = setInterval(fetchTimeOffset, 30000); // sync offset every 30 secs
 
     const clockInterval = setInterval(() => {
       const liveServerTime = new Date(Date.now() + baseTimeDelta.current);
