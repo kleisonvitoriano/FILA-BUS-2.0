@@ -162,6 +162,8 @@ export default function App() {
   const [userObservation, setUserObservation] = useState("");
   const [isSavingObservation, setIsSavingObservation] = useState(false);
 
+  const wasEligibleToJoin = useRef(false);
+
   // Active unsubscribers for cleanups (vital to avoid firebase permissions loops)
   const unsubMembers = useRef<any>(null);
   const unsubSettings = useRef<any>(null);
@@ -536,13 +538,15 @@ export default function App() {
     const isOpen = currentMinutes >= openMinutes && currentMinutes < closeMinutes;
     setIsQueueOpen(isOpen);
 
-    // Dynamic anti-autoclick button teleportation upon state shift to open
-    if (isOpen) {
-      const userInQueue = activeMembers.some(m => m.uid === currentUser?.uid);
-      if (!userInQueue) {
-        randomizeJoinButton();
-      }
+    // Dynamic anti-autoclick button teleportation: only re-roll the position when the
+    // button actually just became eligible to show, not on every snapshot/minute tick
+    // (otherwise it can teleport mid-tap and "eat" the user's click)
+    const userInQueue = activeMembers.some((m: QueueMember) => m.uid === currentUser?.uid);
+    const isEligibleToJoin = isOpen && !userInQueue;
+    if (isEligibleToJoin && !wasEligibleToJoin.current) {
+      randomizeJoinButton();
     }
+    wasEligibleToJoin.current = isEligibleToJoin;
   }, [timeState.hour, timeState.minute, activeSettings, activeMembers, currentUser]);
 
   const randomizeJoinButton = () => {
