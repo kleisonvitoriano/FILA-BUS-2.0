@@ -256,23 +256,20 @@ export default function App() {
   };
 
   useEffect(() => {
-    fetchTimeOffset();
-    const syncInterval = setInterval(fetchTimeOffset, 30000); // sync offset every 30 secs
-
-    const clockInterval = setInterval(() => {
+    const updateClock = () => {
       const liveServerTime = new Date(Date.now() + baseTimeDelta.current);
-      
+
       // Calculate Brasília Time (UTC-3) using UTC millisecond offset.
       // This is 100% immune to browser/device 12h/24h setting overrides.
       const brtMs = liveServerTime.getTime() - (3 * 60 * 60 * 1000);
       const brtDate = new Date(brtMs);
-      
+
       const hour = brtDate.getUTCHours();
       const minute = brtDate.getUTCMinutes();
       const second = brtDate.getUTCSeconds();
-      
+
       const timeString = `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:${String(second).padStart(2, "0")}`;
-      
+
       // Get YYYY-MM-DD in Brasilia Timezone
       const yyyy = brtDate.getUTCFullYear();
       const mm = String(brtDate.getUTCMonth() + 1).padStart(2, "0");
@@ -285,11 +282,28 @@ export default function App() {
         minute,
         dateStringBRT
       });
-    }, 1000);
+    };
+
+    fetchTimeOffset();
+    updateClock();
+    const syncInterval = setInterval(fetchTimeOffset, 30000); // sync offset every 30 secs
+    const clockInterval = setInterval(updateClock, 1000);
+
+    // Mobile/background tabs throttle intervals, so the clock (and isQueueOpen) can go
+    // stale while backgrounded. Force an immediate resync+tick the moment the tab is
+    // foregrounded again, instead of waiting for the next throttled interval firing.
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        fetchTimeOffset();
+        updateClock();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       clearInterval(syncInterval);
       clearInterval(clockInterval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, []);
 
